@@ -99,15 +99,7 @@
             NSMutableDictionary *mutableEvent = [NSMutableDictionary dictionary];
             mutableEvent[@"type"] = [weakSelf eventTypeStringRepresentationFromEventType:eventType];
             mutableEvent[@"name"] = eventName;
-        
-            NSISO8601DateFormatter *dateFormatter = [[NSISO8601DateFormatter alloc] init];
-            dateFormatter.timeZone = [NSTimeZone timeZoneWithAbbreviation:@"UTC"];
-            NSString *dateString = [dateFormatter stringFromDate:[weakSelf.requestContext.timestampProvider provideTimestamp]];
-            mutableEvent[@"timestamp"] = dateString;
-
-        // TODO: Emarsys official SDK has bugs parsing timestamp, temporary fix by using our timestamp convert. Change back after they fix this.
-//            mutableEvent[@"timestamp"] = [[weakSelf.requestContext.timestampProvider provideTimestamp] stringValueInUTC];
-        
+            mutableEvent[@"timestamp"] = [[weakSelf.requestContext.timestampProvider provideTimestamp] stringValueInUTC];
             mutableEvent[@"attributes"] = eventAttributes;
 
             NSMutableDictionary *mutablePayload = [NSMutableDictionary dictionary];
