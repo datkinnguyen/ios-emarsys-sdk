@@ -23,7 +23,7 @@
 #import "MEIAMResponseHandler.h"
 #import "MEIAMCleanupResponseHandler.h"
 #import "MEDefaultHeaders.h"
-#import "AppStartBlockProvider.h"
+#import "EMSAppStartBlockProvider.h"
 #import "EMSWindowProvider.h"
 #import "EMSMainWindowProvider.h"
 #import "EMSViewControllerProvider.h"
@@ -74,6 +74,7 @@
 #import "EMSEndpoint.h"
 #import "EMSStorage.h"
 #import "EMSSceneProvider.h"
+#import "EMSActionFactory.h"
 
 #define DB_PATH [[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject] stringByAppendingPathComponent:@"MEDB.db"]
 
@@ -105,7 +106,7 @@
 @property(nonatomic, strong) NSArray<EMSAbstractResponseHandler *> *responseHandlers;
 @property(nonatomic, strong) EMSRequestManager *requestManager;
 @property(nonatomic, strong) NSOperationQueue *operationQueue;
-@property(nonatomic, strong) AppStartBlockProvider *appStartBlockProvider;
+@property(nonatomic, strong) EMSAppStartBlockProvider *appStartBlockProvider;
 @property(nonatomic, strong) EMSLogger *logger;
 @property(nonatomic, strong) id <EMSDBTriggerProtocol> predictTrigger;
 @property(nonatomic, strong) id <EMSDBTriggerProtocol> loggerTrigger;
@@ -306,6 +307,8 @@
                                                                            deviceInfo:deviceInfo
                                                                        requestContext:self.requestContext];
 
+    UIApplication *application = [UIApplication sharedApplication];
+
     EMSPredictRequestModelBuilderProvider *builderProvider = [[EMSPredictRequestModelBuilderProvider alloc] initWithRequestContext:self.predictRequestContext
                                                                                                                           endpoint:endpoint];
     _predict = [[EMSPredictInternal alloc] initWithRequestContext:self.predictRequestContext
@@ -317,25 +320,29 @@
     _mobileEngage = [[EMSMobileEngageV3Internal alloc] initWithRequestFactory:self.requestFactory
                                                                requestManager:self.requestManager
                                                                requestContext:self.requestContext];
+
+    EMSActionFactory *actionFactory = [[EMSActionFactory alloc] initWithApplication:application
+                                                                       mobileEngage:self.mobileEngage];
+
     _deepLink = [[EMSDeepLinkInternal alloc] initWithRequestManager:self.requestManager
                                                      requestFactory:self.requestFactory];
     _push = [[EMSPushV3Internal alloc] initWithRequestFactory:self.requestFactory
                                                requestManager:self.requestManager
                                             notificationCache:self.notificationCache
-                                            timestampProvider:timestampProvider];
+                                            timestampProvider:timestampProvider
+                                                actionFactory:actionFactory];
     _inbox = [[MEInbox alloc] initWithRequestContext:self.requestContext
                                    notificationCache:self.notificationCache
                                       requestManager:self.requestManager
                                       requestFactory:self.requestFactory
                                             endpoint:endpoint];
-    _notificationCenterDelegate = [[MEUserNotificationDelegate alloc] initWithApplication:[UIApplication sharedApplication]
-                                                                     mobileEngageInternal:self.mobileEngage
-                                                                                    inApp:self.iam
-                                                                        timestampProvider:timestampProvider
-                                                                             uuidProvider:uuidProvider
-                                                                             pushInternal:self.push
-                                                                           requestManager:self.requestManager
-                                                                           requestFactory:self.requestFactory];
+    _notificationCenterDelegate = [[MEUserNotificationDelegate alloc] initWithActionFactory:actionFactory
+                                                                                      inApp:self.iam
+                                                                          timestampProvider:timestampProvider
+                                                                               uuidProvider:uuidProvider
+                                                                               pushInternal:self.push
+                                                                             requestManager:self.requestManager
+                                                                             requestFactory:self.requestFactory];
     _loggingMobileEngage = [EMSLoggingMobileEngageInternal new];
     _loggingDeepLink = [EMSLoggingDeepLinkInternal new];
     _loggingPush = [EMSLoggingPushInternal new];
@@ -354,11 +361,11 @@
                                      remoteConfigResponseMapper:[EMSRemoteConfigResponseMapper new]
                                                        endpoint:endpoint];
 
-    _appStartBlockProvider = [[AppStartBlockProvider alloc] initWithRequestManager:self.requestManager
-                                                                    requestFactory:self.requestFactory
-                                                                    requestContext:self.requestContext
-                                                                  deviceInfoClient:self.deviceInfoClient
-                                                                    configInternal:self.config];
+    _appStartBlockProvider = [[EMSAppStartBlockProvider alloc] initWithRequestManager:self.requestManager
+                                                                       requestFactory:self.requestFactory
+                                                                       requestContext:self.requestContext
+                                                                     deviceInfoClient:self.deviceInfoClient
+                                                                       configInternal:self.config];
 
     [self.iam setInAppTracker:[[EMSInAppInternal alloc] initWithRequestManager:self.requestManager
                                                                 requestFactory:self.requestFactory]];

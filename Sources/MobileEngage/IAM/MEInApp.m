@@ -14,9 +14,8 @@
 #import "MEJSBridge.h"
 #import "MEButtonClickRepository.h"
 #import "EMSMacros.h"
-#import "EMSInAppLoadingTime.h"
-#import "EMSInAppOnScreenTime.h"
 #import "EMSCompletionBlockProvider.h"
+#import "EMSInAppLog.h"
 
 @interface MEInApp () <MEIAMProtocol>
 
@@ -28,6 +27,8 @@
 @property(nonatomic, strong) EMSIAMViewControllerProvider *iamViewControllerProvider;
 @property(nonatomic, strong) MEDisplayedIAMRepository *displayedIamRepository;
 @property(nonatomic, strong) EMSCompletionBlockProvider *completionBlockProvider;
+
+@property(nonatomic, strong) EMSInAppLog *inAppLog;
 
 @property(nonatomic, assign) BOOL paused;
 
@@ -75,17 +76,18 @@
 
 - (void)showMessage:(MEInAppMessage *)message
   completionHandler:(MECompletionHandler)completionHandler {
+    __weak typeof(self) weakSelf = self;
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (!self.iamWindow) {
-            self.iamWindow = [self.windowProvider provideWindow];
-            self.currentInAppMessage = message;
-            MEIAMViewController *meiamViewController = [self.iamViewControllerProvider provideViewController];
-            __weak typeof(self) weakSelf = self;
+        if (!weakSelf.iamWindow) {
+            weakSelf.inAppLog = nil;
+            weakSelf.iamWindow = [weakSelf.windowProvider provideWindow];
+            weakSelf.currentInAppMessage = message;
+            MEIAMViewController *meiamViewController = [weakSelf.iamViewControllerProvider provideViewController];
             [meiamViewController loadMessage:message.html
                            completionHandler:^{
                                if (message.response && weakSelf.timestampProvider) {
-                                   EMSLog([[EMSInAppLoadingTime alloc] initWithInAppMessage:message
-                                                                          timestampProvider:weakSelf.timestampProvider], LogLevelInfo)
+                                   weakSelf.inAppLog = [[EMSInAppLog alloc] initWithMessage:message
+                                                                             loadingTimeEnd:[weakSelf.timestampProvider provideTimestamp]];
                                }
                                [weakSelf displayInAppViewController:message
                                                      viewController:meiamViewController];
@@ -107,7 +109,7 @@
     [self.iamWindow.rootViewController presentViewController:meiamViewController
                                                     animated:YES
                                                   completion:[self.completionBlockProvider provideCompletion:^{
-                                                      weakSelf.onScreenShowTimestamp = [weakSelf.timestampProvider provideTimestamp];
+                                                      [weakSelf.inAppLog setOnScreenTimeStart:[weakSelf.timestampProvider provideTimestamp]];
                                                       [weakSelf trackIAMDisplay:message];
                                                   }]];
 }
@@ -123,9 +125,8 @@
     [self.iamWindow.rootViewController dismissViewControllerAnimated:YES
                                                           completion:^{
                                                               if (weakSelf.currentInAppMessage && weakSelf.onScreenShowTimestamp && weakSelf.timestampProvider) {
-                                                                  EMSLog([[EMSInAppOnScreenTime alloc] initWithInAppMessage:weakSelf.currentInAppMessage
-                                                                                                              showTimestamp:weakSelf.onScreenShowTimestamp
-                                                                                                          timestampProvider:weakSelf.timestampProvider], LogLevelInfo);
+                                                                  [weakSelf.inAppLog setOnScreenTimeEnd:[weakSelf.timestampProvider provideTimestamp]];
+                                                                  EMSLog(weakSelf.inAppLog, LogLevelInfo);
                                                               }
                                                               [[[[UIApplication sharedApplication] delegate] window] makeKeyAndVisible];
                                                               weakSelf.iamWindow = nil;

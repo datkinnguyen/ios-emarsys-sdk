@@ -12,6 +12,9 @@
 #import "NSError+EMSCore.h"
 #import "EMSNotificationCache.h"
 #import "EMSTimestampProvider.h"
+#import "EMSActionFactory.h"
+#import "EMSActionProtocol.h"
+#import "EMSEventHandler.h"
 
 @interface EMSPushV3InternalTests : XCTestCase
 
@@ -20,6 +23,7 @@
 @property(nonatomic, strong) EMSRequestFactory *mockRequestFactory;
 @property(nonatomic, strong) EMSNotificationCache *mockNotificationCache;
 @property(nonatomic, strong) EMSTimestampProvider *mockTimestampProvider;
+@property(nonatomic, strong) EMSActionFactory *mockActionFactory;
 @property(nonatomic, strong) NSString *pushToken;
 @property(nonatomic, strong) id mockPushTokenData;
 
@@ -32,6 +36,7 @@
     _mockRequestManager = OCMClassMock([EMSRequestManager class]);
     _mockNotificationCache = OCMClassMock([EMSNotificationCache class]);
     _mockTimestampProvider = OCMClassMock([EMSTimestampProvider class]);
+    _mockActionFactory = OCMClassMock([EMSActionFactory class]);
 
     _pushToken = @"pushTokenString";
     NSData *data = [NSData new];
@@ -41,7 +46,8 @@
     _push = [[EMSPushV3Internal alloc] initWithRequestFactory:self.mockRequestFactory
                                                requestManager:self.mockRequestManager
                                             notificationCache:self.mockNotificationCache
-                                            timestampProvider:self.mockTimestampProvider];
+                                            timestampProvider:self.mockTimestampProvider
+                                                actionFactory:self.mockActionFactory];
 }
 
 - (void)tearDown {
@@ -54,7 +60,8 @@
         [[EMSPushV3Internal alloc] initWithRequestFactory:nil
                                            requestManager:self.mockRequestManager
                                         notificationCache:self.mockNotificationCache
-                                        timestampProvider:self.mockTimestampProvider];
+                                        timestampProvider:self.mockTimestampProvider
+                                            actionFactory:self.mockActionFactory];
         XCTFail(@"Expected Exception when requestFactory is nil!");
     } @catch (NSException *exception) {
         XCTAssertEqualObjects(exception.reason, @"Invalid parameter not satisfying: requestFactory");
@@ -66,7 +73,8 @@
         [[EMSPushV3Internal alloc] initWithRequestFactory:self.mockRequestFactory
                                            requestManager:nil
                                         notificationCache:self.mockNotificationCache
-                                        timestampProvider:self.mockTimestampProvider];
+                                        timestampProvider:self.mockTimestampProvider
+                                            actionFactory:self.mockActionFactory];
         XCTFail(@"Expected Exception when requestManager is nil!");
     } @catch (NSException *exception) {
         XCTAssertEqualObjects(exception.reason, @"Invalid parameter not satisfying: requestManager");
@@ -78,7 +86,8 @@
         [[EMSPushV3Internal alloc] initWithRequestFactory:self.mockRequestFactory
                                            requestManager:self.mockRequestManager
                                         notificationCache:nil
-                                        timestampProvider:self.mockTimestampProvider];
+                                        timestampProvider:self.mockTimestampProvider
+                                            actionFactory:self.mockActionFactory];
         XCTFail(@"Expected Exception when notificationCache is nil!");
     } @catch (NSException *exception) {
         XCTAssertEqualObjects(exception.reason, @"Invalid parameter not satisfying: notificationCache");
@@ -90,10 +99,24 @@
         [[EMSPushV3Internal alloc] initWithRequestFactory:self.mockRequestFactory
                                            requestManager:self.mockRequestManager
                                         notificationCache:self.mockNotificationCache
-                                        timestampProvider:nil];
+                                        timestampProvider:nil
+                                            actionFactory:self.mockActionFactory];
         XCTFail(@"Expected Exception when timestampProvider is nil!");
     } @catch (NSException *exception) {
         XCTAssertEqualObjects(exception.reason, @"Invalid parameter not satisfying: timestampProvider");
+    }
+}
+
+- (void)testInit_actionFactory_mustNotBeNil {
+    @try {
+        [[EMSPushV3Internal alloc] initWithRequestFactory:self.mockRequestFactory
+                                           requestManager:self.mockRequestManager
+                                        notificationCache:self.mockNotificationCache
+                                        timestampProvider:self.mockTimestampProvider
+                                            actionFactory:nil];
+        XCTFail(@"Expected Exception when actionFactory is nil!");
+    } @catch (NSException *exception) {
+        XCTAssertEqualObjects(exception.reason, @"Invalid parameter not satisfying: actionFactory");
     }
 }
 
@@ -293,6 +316,42 @@
 
     [self.push trackMessageOpenWithUserInfo:userInfo
                             completionBlock:nil];
+}
+
+- (void)testHandleMessageWithUserInfo {
+    NSDictionary *openExternalUrlAction = @{
+            @"type": @"OpenExternalUrl",
+            @"url": @"https://www.emarsys.com"
+    };
+    NSDictionary *badgeCountAction = @{
+            @"type": @"BadgeCount",
+            @"method": @"ADD",
+            @"value": @12
+    };
+
+    id mockActionUrl = OCMProtocolMock(@protocol(EMSActionProtocol));
+    id mockActionBadge = OCMProtocolMock(@protocol(EMSActionProtocol));
+    id eventHandler = OCMProtocolMock(@protocol(EMSEventHandler));
+
+    OCMStub([self.mockActionFactory createActionWithActionDictionary:openExternalUrlAction]).andReturn(mockActionUrl);
+    OCMStub([self.mockActionFactory createActionWithActionDictionary:badgeCountAction]).andReturn(mockActionBadge);
+
+    [self.push setSilentMessageEventHandler:eventHandler];
+
+    [self.push handleMessageWithUserInfo:@{
+            @"ems":
+            @{
+                    @"actions": @[
+                    openExternalUrlAction,
+                    badgeCountAction
+            ]}
+    }];
+
+    OCMVerify([self.mockActionFactory setEventHandler:eventHandler]);
+    OCMVerify([self.mockActionFactory createActionWithActionDictionary:openExternalUrlAction]);
+    OCMVerify([mockActionUrl execute]);
+    OCMVerify([self.mockActionFactory createActionWithActionDictionary:badgeCountAction]);
+    OCMVerify([mockActionBadge execute]);
 }
 
 @end

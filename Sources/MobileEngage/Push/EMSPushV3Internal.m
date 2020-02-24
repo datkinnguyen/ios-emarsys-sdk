@@ -1,6 +1,7 @@
 //
 // Copyright (c) 2019 Emarsys. All rights reserved.
 //
+#import <UIKit/UIKit.h>
 #import "EMSPushV3Internal.h"
 #import "EMSRequestFactory.h"
 #import "EMSRequestManager.h"
@@ -9,6 +10,8 @@
 #import "NSError+EMSCore.h"
 #import "EMSNotificationCache.h"
 #import "EMSTimestampProvider.h"
+#import "EMSActionFactory.h"
+#import "EMSActionProtocol.h"
 
 @interface EMSPushV3Internal ()
 
@@ -16,24 +19,30 @@
 @property(nonatomic, strong) EMSRequestManager *requestManager;
 @property(nonatomic, strong) EMSNotificationCache *notificationCache;
 @property(nonatomic, strong) EMSTimestampProvider *timestampProvider;
+@property(nonatomic, strong) EMSActionFactory *actionFactory;
 
 @end
 
 @implementation EMSPushV3Internal
 
+@synthesize silentMessageEventHandler = _silentMessageEventHandler;
+
 - (instancetype)initWithRequestFactory:(EMSRequestFactory *)requestFactory
                         requestManager:(EMSRequestManager *)requestManager
                      notificationCache:(EMSNotificationCache *)notificationCache
-                     timestampProvider:(EMSTimestampProvider *)timestampProvider {
+                     timestampProvider:(EMSTimestampProvider *)timestampProvider
+                         actionFactory:(EMSActionFactory *)actionFactory {
     NSParameterAssert(requestFactory);
     NSParameterAssert(requestManager);
     NSParameterAssert(notificationCache);
     NSParameterAssert(timestampProvider);
+    NSParameterAssert(actionFactory);
     if (self = [super init]) {
         _requestFactory = requestFactory;
         _requestManager = requestManager;
         _notificationCache = notificationCache;
         _timestampProvider = timestampProvider;
+        _actionFactory = actionFactory;
     }
     return self;
 }
@@ -84,8 +93,8 @@
     if (sid) {
         EMSRequestModel *requestModel = [self.requestFactory createEventRequestModelWithEventName:@"push:click"
                                                                                   eventAttributes:@{
-                                                                                      @"origin": @"main",
-                                                                                      @"sid": sid
+                                                                                          @"origin": @"main",
+                                                                                          @"sid": sid
                                                                                   }
                                                                                         eventType:EventTypeInternal];
         [self.requestManager submitRequestModel:requestModel
@@ -96,6 +105,15 @@
             completionBlock([NSError errorWithCode:1400
                               localizedDescription:@"No messageId found!"]);
         });
+    }
+}
+
+- (void)handleMessageWithUserInfo:(NSDictionary *)userInfo {
+    NSArray<NSDictionary *> *actions = userInfo[@"ems"][@"actions"];
+    [self.actionFactory setEventHandler:self.silentMessageEventHandler];
+    for (NSDictionary *actionDict in actions) {
+        id<EMSActionProtocol> action = [self.actionFactory createActionWithActionDictionary:actionDict];
+        [action execute];
     }
 }
 

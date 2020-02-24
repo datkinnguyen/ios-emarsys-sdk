@@ -8,6 +8,7 @@
 @class EMSRequestManager;
 @class EMSNotificationCache;
 @class EMSTimestampProvider;
+@class EMSActionFactory;
 
 @interface EMSPushV3Internal : NSObject <EMSPushNotificationProtocol>
 
@@ -16,6 +17,7 @@
 - (instancetype)initWithRequestFactory:(EMSRequestFactory *)requestFactory
                         requestManager:(EMSRequestManager *)requestManager
                      notificationCache:(EMSNotificationCache *)notificationCache
-                     timestampProvider:(EMSTimestampProvider *)timestampProvider;
+                     timestampProvider:(EMSTimestampProvider *)timestampProvider
+                         actionFactory:(EMSActionFactory *)actionFactory;
 
 @end

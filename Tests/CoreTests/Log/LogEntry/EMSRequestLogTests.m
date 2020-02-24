@@ -34,7 +34,8 @@
                                                         timestamp:self.responseTimestamp];
     OCMStub(requestModel.requestId).andReturn(@"requestId123");
     OCMStub(requestModel.timestamp).andReturn([NSDate date]);
-    OCMStub(requestModel.url).andReturn(@"https://www.emarsys.com");
+    NSURL *url = [[NSURL alloc] initWithString:@"https://www.emarsys.com"];
+    OCMStub(requestModel.url).andReturn(url);
 
     _requestLog = [[EMSRequestLog alloc] initWithResponseModel:self.responseModel
                                            networkingStartTime:self.timestamp];
@@ -66,15 +67,15 @@
 
 - (void)testData {
     NSDictionary *expectedData = @{
-        @"request_id": self.responseModel.requestModel.requestId,
-        @"url": self.responseModel.requestModel.url,
-        @"status_code": @(self.responseModel.statusCode),
-        @"in_db_start": [self.responseModel.requestModel.timestamp numberValueInMillis],
-        @"in_db_end": [self.timestamp numberValueInMillis],
-        @"in_db_duration": [self.timestamp numberValueInMillisFromDate:self.responseModel.requestModel.timestamp],
-        @"networking_start": [self.timestamp numberValueInMillis],
-        @"networking_end": [self.responseModel.timestamp numberValueInMillis],
-        @"networking_duration": [self.responseModel.timestamp numberValueInMillisFromDate:self.timestamp]
+        @"requestId": self.responseModel.requestModel.requestId,
+        @"url": [self.responseModel.requestModel.url absoluteString],
+        @"statusCode": @(self.responseModel.statusCode),
+        @"inDbStart": [self.responseModel.requestModel.timestamp numberValueInMillis],
+        @"inDbEnd": [self.timestamp numberValueInMillis],
+        @"inDbDuration": [self.timestamp numberValueInMillisFromDate:self.responseModel.requestModel.timestamp],
+        @"networkingStart": [self.timestamp numberValueInMillis],
+        @"networkingEnd": [self.responseModel.timestamp numberValueInMillis],
+        @"networkingDuration": [self.responseModel.timestamp numberValueInMillisFromDate:self.timestamp]
     };
 
     XCTAssertEqualObjects(self.requestLog.data, expectedData);

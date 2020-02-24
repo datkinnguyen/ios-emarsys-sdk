@@ -10,6 +10,8 @@
 
 @implementation EMSLoggingPushInternal
 
+@synthesize silentMessageEventHandler = _silentMessageEventHandler;
+
 - (void)setPushToken:(NSData *)pushToken {
     EMSLog([[EMSMethodNotAllowed alloc] initWithProtocol:proto
                                                      sel:_cmd
@@ -53,6 +55,14 @@
     NSMutableDictionary *parameters = [NSMutableDictionary dictionary];
     parameters[@"userInfo"] = userInfo;
     parameters[@"completionBlock"] = @(completionBlock != nil);
+    EMSLog([[EMSMethodNotAllowed alloc] initWithProtocol:proto
+                                                     sel:_cmd
+                                              parameters:parameters], LogLevelDebug);
+}
+
+- (void)handleMessageWithUserInfo:(NSDictionary *)userInfo {
+    NSMutableDictionary *parameters = [NSMutableDictionary dictionary];
+    parameters[@"userInfo"] = userInfo;
     EMSLog([[EMSMethodNotAllowed alloc] initWithProtocol:proto
                                                      sel:_cmd
                                               parameters:parameters], LogLevelDebug);

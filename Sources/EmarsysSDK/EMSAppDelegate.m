@@ -13,6 +13,7 @@ didFinishLaunchingWithOptions:(nullable NSDictionary<UIApplicationLaunchOptionsK
     [Emarsys setupWithConfig:self.provideEMSConfig];
     Emarsys.inApp.eventHandler = self;
     Emarsys.notificationCenterDelegate.eventHandler = self;
+    Emarsys.push.silentMessageEventHandler = self;
     UNUserNotificationCenter.currentNotificationCenter.delegate = Emarsys.notificationCenterDelegate;
 
     [application registerForRemoteNotifications];
@@ -49,9 +50,7 @@ didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken {
 - (void)         application:(UIApplication *)application
 didReceiveRemoteNotification:(NSDictionary *)userInfo
       fetchCompletionHandler:(void (^)(UIBackgroundFetchResult result))completionHandler {
-    [Emarsys.push trackMessageOpenWithUserInfo:userInfo];
-    NSNumber *badge = userInfo[@"aps"][@"badge"];
-    application.applicationIconBadgeNumber = [badge integerValue];
+    [Emarsys.push handleMessageWithUserInfo:userInfo];
     completionHandler(UIBackgroundFetchResultNewData);
 }
 
